@@ -11,6 +11,17 @@ import srt
 from datetime import timedelta
 from googletrans import Translator
 
+# --- CORREÇÃO PARA O WHISPER EM .EXE ---
+# Quando compilado com PyInstaller, o Whisper precisa de saber onde está a pasta 'assets'
+if getattr(sys, 'frozen', False):
+    # Estamos a correr como .exe
+    base_path = sys._MEIPASS
+    whisper_assets = os.path.join(base_path, 'whisper', 'assets')
+    if os.path.exists(whisper_assets):
+        # Diz ao Whisper para usar este caminho
+        os.environ['WHISPER_ASSETS'] = whisper_assets
+        print(f"[DEBUG] Whisper assets path: {whisper_assets}")
+
 # --- Configuração da Interface ---
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("green")
@@ -19,19 +30,17 @@ class AutoSubApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("AutoSub - Automatic Subtitle Generator (v0.4)")
+        self.title("AutoSub - Automatic Subtitle Generator (v0.4.2)")
         self.geometry("820x820")
         self.resizable(False, False)
 
-        # Variáveis de estado
         self.caminho_arquivo = ""
         self.pasta_destino = ""
         self.cancelar = False
         self.ultimo_srt = ""
         self.modelo_whisper = None
-        self.idioma_interface = "en"  # Padrão: Inglês
+        self.idioma_interface = "en"
 
-        # --- Dicionário de Textos (i18n) ---
         self.textos = {
             "en": {
                 "titulo": "AutoSub",
@@ -58,7 +67,7 @@ class AutoSubApp(ctk.CTk):
                 "msg_aviso_arquivo": "Please select a file first!",
                 "msg_cancelado": "Cancel request received. Stopping...",
                 "msg_cancelado_final": "Process interrupted.",
-                "log_inicial": "[INFO] AutoSub v0.4 ready. Select a file...",
+                "log_inicial": "[INFO] AutoSub v0.4.2 ready. Select a file...",
                 "log_arquivo": "[INFO] File loaded: ",
                 "log_pasta": "[INFO] Output folder set: ",
                 "log_modelo_carregando": "[INFO] Loading Whisper model: ",
@@ -98,7 +107,7 @@ class AutoSubApp(ctk.CTk):
                 "msg_aviso_arquivo": "Seleciona um ficheiro primeiro!",
                 "msg_cancelado": "Pedido de cancelamento recebido. A parar...",
                 "msg_cancelado_final": "Processo interrompido.",
-                "log_inicial": "[INFO] AutoSub v0.4 pronta. Seleciona um ficheiro...",
+                "log_inicial": "[INFO] AutoSub v0.4.2 pronta. Seleciona um ficheiro...",
                 "log_arquivo": "[INFO] Ficheiro carregado: ",
                 "log_pasta": "[INFO] Pasta de destino definida: ",
                 "log_modelo_carregando": "[INFO] A carregar modelo Whisper: ",
@@ -380,10 +389,12 @@ class AutoSubApp(ctk.CTk):
                     content=seg["text"].strip()
                 ))
 
-            if self.pasta_destino:
+            if self.pasta_destino and os.path.isdir(self.pasta_destino):
                 pasta_saida = self.pasta_destino
             else:
                 pasta_saida = os.path.dirname(self.caminho_arquivo)
+
+            os.makedirs(pasta_saida, exist_ok=True)
 
             nome_base = os.path.splitext(os.path.basename(self.caminho_arquivo))[0]
             formato = self.combo_formato.get()
